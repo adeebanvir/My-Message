@@ -1,0 +1,6 @@
+{
+  "name": "Web Messenger",
+  "description": "A purely web-based, real-time messaging application with Google Sign-In and Firestore-backed instant message delivery, real-time presence, and typing indicators.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
