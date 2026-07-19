@@ -109,11 +109,79 @@ export const saveUserProfile = async (user: User, online: boolean) => {
       email: user.email,
       avatar: user.avatar,
       online,
-      lastSeen: Date.now()
+      lastSeen: Date.now(),
+      description: user.description || '',
+      addedContactIds: user.addedContactIds || []
     }, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
+};
+
+/**
+ * Retrieves a user profile by 12-digit ID.
+ */
+export const getUserById = async (userId: string): Promise<User | null> => {
+  const path = `users/${userId}`;
+  try {
+    const docRef = doc(db, 'users', userId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as User;
+    }
+    return null;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return null;
+  }
+};
+
+/**
+ * Adds a contact to user's friend/contact list.
+ */
+export const addContactToUser = async (currentUserId: string, contactId: string): Promise<void> => {
+  const path = `users/${currentUserId}`;
+  try {
+    const userRef = doc(db, 'users', currentUserId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const userData = userSnap.data() as User;
+      const currentContacts = userData.addedContactIds || [];
+      if (!currentContacts.includes(contactId)) {
+        const updatedContacts = [...currentContacts, contactId];
+        await updateDoc(userRef, { addedContactIds: updatedContacts });
+      }
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+};
+
+/**
+ * Listens to all inbound messages where the recipient is currentUserId.
+ * This is used to automatically discover users who sent messages to us.
+ */
+export const listenInboxMessages = (currentUserId: string, callback: (messages: Message[]) => void) => {
+  const path = `messages?recipientId=${currentUserId}`;
+  const messagesCol = collection(db, 'messages');
+  const q = query(
+    messagesCol,
+    where('recipientId', '==', currentUserId)
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const msgs: Message[] = [];
+      snapshot.forEach((doc) => {
+        msgs.push(doc.data() as Message);
+      });
+      callback(msgs);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
+  );
 };
 
 /**

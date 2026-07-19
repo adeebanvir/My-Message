@@ -28,6 +28,17 @@
         "lastSeen": {
           "type": "number",
           "description": "Epoch timestamp of the user's last activity."
+        },
+        "description": {
+          "type": "string",
+          "description": "Short bio or description of the user."
+        },
+        "addedContactIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of 12-digit numeric contact/friend IDs."
         }
       },
       "required": ["id", "name", "email", "avatar", "online", "lastSeen"]

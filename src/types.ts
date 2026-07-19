@@ -5,6 +5,8 @@ export interface User {
   avatar: string;
   online: boolean;
   lastSeen?: number; // timestamp
+  description?: string; // bio/description
+  addedContactIds?: string[]; // 12-digit numeric IDs of added friends
 }
 
 export interface Message {

@@ -23,13 +23,14 @@ service cloud.firestore {
     // Entity validation rules mapping from master blueprint
     function isValidUser(data) {
       return data.keys().hasAll(['id', 'name', 'email', 'avatar', 'online', 'lastSeen'])
-        && data.keys().size() == 6
         && data.id is string && data.id.size() <= 128
         && data.name is string && data.name.size() <= 100
         && data.email is string && data.email.size() <= 150
         && data.avatar is string && data.avatar.size() <= 1000
         && data.online is bool
-        && data.lastSeen is int;
+        && data.lastSeen is int
+        && (!data.keys().contains('description') || data.description is string)
+        && (!data.keys().contains('addedContactIds') || data.addedContactIds is list);
     }
 
     function isValidMessage(data) {
