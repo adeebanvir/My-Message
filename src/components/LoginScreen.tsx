@@ -78,9 +78,29 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [signupBio, setSignupBio] = useState('');
   const [signupAvatar, setSignupAvatar] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
+  const [gmailError, setGmailError] = useState<string | null>(null);
 
   // Sign In form states
   const [signinId, setSigninId] = useState('');
+
+  // Validate Gmail address format based on real Google constraints
+  const isValidGmail = (email: string): boolean => {
+    const clean = email.trim().toLowerCase();
+    if (!clean.endsWith('@gmail.com')) return false;
+    
+    const localPart = clean.split('@')[0];
+    // Gmail usernames must be between 6 and 30 characters long
+    if (localPart.length < 6 || localPart.length > 30) return false;
+    
+    // Gmail usernames can only contain letters (a-z), numbers (0-9), and periods (.)
+    if (!/^[a-z0-9.]+$/.test(localPart)) return false;
+    
+    // They cannot contain consecutive periods, and cannot start or end with a period.
+    if (localPart.includes('..')) return false;
+    if (localPart.startsWith('.') || localPart.endsWith('.')) return false;
+    
+    return true;
+  };
 
   // Generate a random 12-digit numeric ID consisting only of numbers
   const generateNumericId = () => {
@@ -115,12 +135,18 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
 
     const cleanEmail = signupEmail.trim().toLowerCase();
+    setGmailError(null);
+
     if (!cleanEmail) {
       setError('Please enter a Gmail address to create an account.');
+      setGmailError('Please enter a Gmail address.');
       return;
     }
-    if (!cleanEmail.endsWith('@gmail.com')) {
-      setError('You must use a valid Gmail address (ending with @gmail.com) to register.');
+    
+    if (!isValidGmail(cleanEmail)) {
+      const errorMsg = 'The entered Gmail does not exist or has an invalid structure. It must contain between 6 and 30 characters, contain only letters, numbers, or periods, and cannot have consecutive or leading/trailing periods.';
+      setError(errorMsg);
+      setGmailError('This is not an actual or valid Gmail address structure.');
       return;
     }
 
@@ -131,7 +157,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       // Check if Gmail is already registered to another ID
       const existingUserByEmail = await getUserByEmail(cleanEmail);
       if (existingUserByEmail) {
-        setError(`This Gmail (${cleanEmail}) is already registered to User ID: ${formatIdWithSpaces(existingUserByEmail.id)}. Please sign in with that ID instead.`);
+        const dupError = `This Gmail address (${cleanEmail}) is already registered to User ID: ${formatIdWithSpaces(existingUserByEmail.id)}. One unique account per Gmail address is enforced.`;
+        setError(dupError);
+        setGmailError(`This Gmail is already used by an existing account (User ID: ${formatIdWithSpaces(existingUserByEmail.id)}).`);
         setLoading(null);
         return;
       }
@@ -641,10 +669,22 @@ export const listenInboxMessages = (currentUserId, callback) => {
                     required
                     placeholder="e.g. yourname@gmail.com"
                     value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800/80 focus:border-blue-500/50 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none transition-all"
+                    onChange={(e) => {
+                      setSignupEmail(e.target.value);
+                      if (gmailError) setGmailError(null);
+                    }}
+                    className={`w-full bg-zinc-950 border focus:border-blue-500/50 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none transition-all ${
+                      gmailError ? 'border-rose-500/60 bg-rose-950/5' : 'border-zinc-800/80'
+                    }`}
                   />
-                  <p className="text-[10px] text-zinc-500 mt-1 font-mono">Must end with @gmail.com. Max 1 account per Gmail.</p>
+                  {gmailError ? (
+                    <p className="text-[10px] text-rose-400 mt-1.5 font-mono flex items-center gap-1">
+                      <span className="w-1 h-1 rounded-full bg-rose-500" />
+                      {gmailError}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-zinc-500 mt-1 font-mono">Must end with @gmail.com. Max 1 account per Gmail.</p>
+                  )}
                 </div>
 
                 {/* Short Bio Description input */}
@@ -685,6 +725,17 @@ export const listenInboxMessages = (currentUserId, callback) => {
                     </button>
                   </div>
                 </div>
+
+                {/* Gmail Error Alert at the bottom of the form */}
+                {gmailError && (
+                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-300 text-xs flex items-start gap-3">
+                    <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                    <div className="space-y-1">
+                      <p className="font-bold font-mono uppercase text-[10px] tracking-wider text-rose-400">Gmail Access Violation</p>
+                      <p className="leading-relaxed">{gmailError}</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Register Action Button */}
                 <button
