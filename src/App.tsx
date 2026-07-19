@@ -1,9 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { User, Message, ServerMessage, ClientMessage } from './types';
+import { useEffect, useState } from 'react';
+import { User, Message } from './types';
 import LoginScreen from './components/LoginScreen';
 import Sidebar from './components/Sidebar';
 import ActiveChat from './components/ActiveChat';
-import { MessageSquareDashed, MessageSquare, Users, Settings, Shield, Database, LogOut, Radio, Cpu } from 'lucide-react';
+import { MessageSquareDashed, MessageSquare, Users, Settings, Shield, Database, LogOut, Cpu } from 'lucide-react';
+import {
+  saveUserProfile,
+  listenUsers,
+  sendMessage,
+  listenMessages,
+  listenUnreadCounts,
+  markMessagesAsRead,
+  setTypingState,
+  listenTypingState
+} from './lib/firebase';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -17,199 +27,94 @@ export default function App() {
   const [typingContacts, setTypingContacts] = useState<{ [userId: string]: boolean }>({});
   const [unreadCounts, setUnreadCounts] = useState<{ [userId: string]: number }>({});
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Initialize WebSocket when currentUser exists
+  // Synchronize user presence & active user profile to Firestore
   useEffect(() => {
-    if (!currentUser) {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      return;
-    }
+    if (!currentUser) return;
 
-    const connectWebSocket = () => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // Connect to the isolated WebSocket api path
-      const wsUrl = `${protocol}//${window.location.host}/api/ws`;
-      console.log(`Establishing real-time WebSocket connection to ${wsUrl}...`);
+    // Set online status to true
+    saveUserProfile(currentUser, true);
 
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log('WebSocket connection successfully opened!');
-        if (reconnectIntervalRef.current) {
-          clearInterval(reconnectIntervalRef.current);
-          reconnectIntervalRef.current = null;
-        }
-
-        // Authenticate the WS connection with user credentials
-        const authMessage: ClientMessage = {
-          type: 'auth',
-          payload: { user: currentUser },
-        };
-        ws.send(JSON.stringify(authMessage));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data: ServerMessage = JSON.parse(event.data);
-
-          switch (data.type) {
-            case 'users_update': {
-              const { users: updatedUsers } = data.payload;
-              setUsers(updatedUsers);
-              break;
-            }
-
-            case 'receive_message': {
-              const msg = data.payload;
-              const isFromSelectedContact = selectedContactId === msg.senderId;
-              const isToMe = msg.recipientId === currentUser.id;
-              const isFromMe = msg.senderId === currentUser.id;
-
-              if (isFromSelectedContact) {
-                // Append message immediately
-                setMessages((prev) => {
-                  if (prev.some((m) => m.id === msg.id)) return prev;
-                  return [...prev, msg];
-                });
-
-                // Let the server know we read this message
-                if (isToMe) {
-                  const readMessage: ClientMessage = {
-                    type: 'mark_read',
-                    payload: { senderId: msg.senderId },
-                  };
-                  ws.send(JSON.stringify(readMessage));
-                }
-              } else if (isToMe) {
-                // Message is for me, but from a background user. Increment unread counter.
-                setUnreadCounts((prev) => ({
-                  ...prev,
-                  [msg.senderId]: (prev[msg.senderId] || 0) + 1,
-                }));
-              } else if (isFromMe && selectedContactId === msg.recipientId) {
-                // Echo of my own message sent from another client tab or confirmed by server
-                setMessages((prev) => {
-                  if (prev.some((m) => m.id === msg.id)) return prev;
-                  return [...prev, msg];
-                });
-              }
-              break;
-            }
-
-            case 'message_status_update': {
-              const { id, status } = data.payload;
-              setMessages((prev) =>
-                prev.map((msg) => (msg.id === id ? { ...msg, status } : msg))
-              );
-              break;
-            }
-
-            case 'typing_update': {
-              const { userId, isTyping, recipientId } = data.payload;
-              // Only display typing indicator if it is destined for current user
-              if (recipientId === currentUser.id) {
-                setTypingContacts((prev) => ({
-                  ...prev,
-                  [userId]: isTyping,
-                }));
-              }
-              break;
-            }
-
-            case 'history': {
-              const { recipientId, messages: historyMessages } = data.payload;
-              if (selectedContactId === recipientId) {
-                setMessages(historyMessages);
-
-                // Auto read all loaded unread history messages
-                const unreadFromContact = historyMessages.some(
-                  (m) => m.senderId === recipientId && m.status !== 'read'
-                );
-                if (unreadFromContact) {
-                  const readMessage: ClientMessage = {
-                    type: 'mark_read',
-                    payload: { senderId: recipientId },
-                  };
-                  ws.send(JSON.stringify(readMessage));
-                }
-              }
-              break;
-            }
-
-            default:
-              console.warn('Unhandled websocket event:', data);
-          }
-        } catch (err) {
-          console.error('Error processing server event:', err);
-        }
-      };
-
-      ws.onclose = () => {
-        console.warn('WebSocket connection lost. Attempting auto-reconnection in 3 seconds...');
-        // Clean up socket state
-        wsRef.current = null;
-        setUsers((prev) => prev.map((u) => ({ ...u, online: false })));
-
-        if (!reconnectIntervalRef.current && currentUser) {
-          reconnectIntervalRef.current = setInterval(() => {
-            connectWebSocket();
-          }, 3000);
-        }
-      };
-
-      ws.onerror = (err) => {
-        console.error('WebSocket error:', err);
-      };
+    const handleBeforeUnload = () => {
+      saveUserProfile(currentUser, false);
     };
 
-    connectWebSocket();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        saveUserProfile(currentUser, true);
+      } else {
+        saveUserProfile(currentUser, false);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (reconnectIntervalRef.current) {
-        clearInterval(reconnectIntervalRef.current);
-      }
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      saveUserProfile(currentUser, false);
     };
-  }, [currentUser, selectedContactId]);
+  }, [currentUser]);
 
-  // Request conversation history when switching contacts
+  // Real-time listener for users
   useEffect(() => {
-    if (!selectedContactId || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+    if (!currentUser) return;
+    const unsubscribe = listenUsers((updatedUsers) => {
+      setUsers(updatedUsers);
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Real-time listener for unread messages counts
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsubscribe = listenUnreadCounts(currentUser.id, (counts) => {
+      setUnreadCounts(counts);
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Real-time listener for chat messages
+  useEffect(() => {
+    if (!currentUser || !selectedContactId) {
       setMessages([]);
       return;
     }
 
-    // Clear unread counts for this contact
-    setUnreadCounts((prev) => ({
-      ...prev,
-      [selectedContactId]: 0,
-    }));
+    // Mark messages from this contact as read immediately
+    markMessagesAsRead(selectedContactId, currentUser.id);
 
-    // Send history fetch request
-    const requestHistoryMsg: ClientMessage = {
-      type: 'request_history',
-      payload: { contactId: selectedContactId },
-    };
-    wsRef.current.send(JSON.stringify(requestHistoryMsg));
-  }, [selectedContactId]);
+    const unsubscribe = listenMessages(currentUser.id, selectedContactId, (history) => {
+      setMessages(history);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, selectedContactId]);
+
+  // Real-time listener for contact typing indicators
+  useEffect(() => {
+    if (!currentUser || !selectedContactId) return;
+
+    const unsubscribe = listenTypingState(selectedContactId, currentUser.id, (isTyping) => {
+      setTypingContacts((prev) => ({
+        ...prev,
+        [selectedContactId]: isTyping,
+      }));
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, selectedContactId]);
 
   const handleLoginSuccess = (user: User) => {
     localStorage.setItem('web_messenger_user', JSON.stringify(user));
     setCurrentUser(user);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('web_messenger_user');
-    if (wsRef.current) {
-      wsRef.current.close();
+  const handleLogout = async () => {
+    if (currentUser) {
+      await saveUserProfile(currentUser, false);
     }
+    localStorage.removeItem('web_messenger_user');
     setCurrentUser(null);
     setSelectedContactId(null);
     setUsers([]);
@@ -219,33 +124,13 @@ export default function App() {
   };
 
   const handleSendMessage = (text: string) => {
-    if (!selectedContactId || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      return;
-    }
-
-    const sendMsg: ClientMessage = {
-      type: 'send_message',
-      payload: {
-        recipientId: selectedContactId,
-        text,
-      },
-    };
-    wsRef.current.send(JSON.stringify(sendMsg));
+    if (!selectedContactId || !currentUser) return;
+    sendMessage(currentUser.id, selectedContactId, text);
   };
 
   const handleSendTyping = (isTyping: boolean) => {
-    if (!selectedContactId || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      return;
-    }
-
-    const typingMsg: ClientMessage = {
-      type: 'typing',
-      payload: {
-        recipientId: selectedContactId,
-        isTyping,
-      },
-    };
-    wsRef.current.send(JSON.stringify(typingMsg));
+    if (!selectedContactId || !currentUser) return;
+    setTypingState(currentUser.id, selectedContactId, isTyping);
   };
 
   // Switch contact safely

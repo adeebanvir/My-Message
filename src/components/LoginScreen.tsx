@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { LogIn, ShieldAlert, Sparkles, UserCheck } from 'lucide-react';
 import { User } from '../types';
+import { saveUserProfile } from '../lib/firebase';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: User) => void;
@@ -71,23 +72,37 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setLoading('google');
     setError(null);
     try {
-      const res = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: response.credential }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to authenticate with Google');
+      // Decode JWT client-side
+      const base64Url = response.credential.split('.')[1];
+      if (!base64Url) {
+        throw new Error('Invalid Google credential format');
       }
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        window
+          .atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const payload = JSON.parse(jsonPayload);
 
-      const data = await res.json();
-      if (data.success && data.user) {
-        onLoginSuccess(data.user);
-      } else {
-        throw new Error('Authentication failed');
-      }
+      const googleId = payload.sub || payload.email;
+      const email = payload.email || '';
+      const name = payload.name || payload.email?.split('@')[0] || 'Google User';
+      const picture = payload.picture || `https://api.dicebear.com/7.x/adventurer/svg?seed=${googleId}`;
+
+      const user: User = {
+        id: googleId,
+        name,
+        email,
+        avatar: picture,
+        online: true,
+      };
+
+      // Save directly to Firebase Firestore
+      await saveUserProfile(user, true);
+      onLoginSuccess(user);
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Failed to authenticate. Try using Sandbox Login.');
@@ -122,35 +137,22 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   };
 
-  // Log in using a Sandbox Account (highly robust simulation with backend DB registration)
+  // Log in using a Sandbox Account (directly registered in Firebase Firestore)
   const handleSandboxLogin = async (profile: typeof SANDBOX_PROFILES[0]) => {
     setLoading(profile.id);
     setError(null);
     try {
-      const res = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mockUser: {
-            id: profile.id,
-            name: profile.name,
-            email: profile.email,
-            avatar: profile.avatar,
-          },
-        }),
-      });
+      const user: User = {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        avatar: profile.avatar,
+        online: true,
+      };
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to login with Sandbox Profile');
-      }
-
-      const data = await res.json();
-      if (data.success && data.user) {
-        onLoginSuccess(data.user);
-      } else {
-        throw new Error('Sandbox authentication failed');
-      }
+      // Register and save sandbox profile directly to Firestore
+      await saveUserProfile(user, true);
+      onLoginSuccess(user);
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Sandbox authentication failed.');
