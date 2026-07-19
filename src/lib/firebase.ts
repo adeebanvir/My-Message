@@ -137,6 +137,24 @@ export const getUserById = async (userId: string): Promise<User | null> => {
 };
 
 /**
+ * Retrieves a user profile by Email address.
+ */
+export const getUserByEmail = async (email: string): Promise<User | null> => {
+  const path = `users?email=${email}`;
+  try {
+    const q = query(collection(db, 'users'), where('email', '==', email));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      return querySnapshot.docs[0].data() as User;
+    }
+    return null;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return null;
+  }
+};
+
+/**
  * Adds a contact to user's friend/contact list.
  */
 export const addContactToUser = async (currentUserId: string, contactId: string): Promise<void> => {

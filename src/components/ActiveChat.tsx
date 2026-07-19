@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, ChangeEvent, FormEvent } from 'react';
-import { Send, Check, CheckCheck, MoreVertical, Phone, Video, Smile } from 'lucide-react';
+import { Send, Check, CheckCheck, MoreVertical, Phone, Video, Smile, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Message, User } from '../types';
 
 interface ActiveChatProps {
@@ -9,6 +9,8 @@ interface ActiveChatProps {
   onSendMessage: (text: string) => void;
   onSendTyping: (isTyping: boolean) => void;
   isContactTyping: boolean;
+  isRightSidebarOpen: boolean;
+  onToggleRightSidebar: () => void;
 }
 
 export default function ActiveChat({
@@ -18,6 +20,8 @@ export default function ActiveChat({
   onSendMessage,
   onSendTyping,
   isContactTyping,
+  isRightSidebarOpen,
+  onToggleRightSidebar,
 }: ActiveChatProps) {
   const [inputText, setInputText] = useState('');
   const [typing, setTyping] = useState(false);
@@ -127,6 +131,21 @@ export default function ActiveChat({
           </button>
           <button className="p-2 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60 rounded-lg transition-all cursor-not-allowed" title="Video Call (Sandbox Mode)" disabled>
             <Video className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onToggleRightSidebar}
+            className={`p-2 rounded-lg transition-all cursor-pointer ${
+              isRightSidebarOpen
+                ? 'text-blue-500 bg-blue-500/10 border border-blue-500/20'
+                : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60'
+            }`}
+            title={isRightSidebarOpen ? "Hide Profile Info" : "Show Profile Info"}
+          >
+            {isRightSidebarOpen ? (
+              <PanelRightClose className="w-4 h-4" />
+            ) : (
+              <PanelRightOpen className="w-4 h-4" />
+            )}
           </button>
           <button className="p-2 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60 rounded-lg transition-all">
             <MoreVertical className="w-4 h-4" />

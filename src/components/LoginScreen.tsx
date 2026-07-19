@@ -1,7 +1,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { LogIn, ShieldAlert, Sparkles, UserCheck, Shield, Zap, MessageSquare, Clock, Globe, ArrowRight, Lock, Laptop, User as UserIcon, RefreshCw, Key, HelpCircle } from 'lucide-react';
 import { User } from '../types';
-import { saveUserProfile, getUserById } from '../lib/firebase';
+import { saveUserProfile, getUserById, getUserByEmail } from '../lib/firebase';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: User) => void;
@@ -114,10 +114,28 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
+    const cleanEmail = signupEmail.trim().toLowerCase();
+    if (!cleanEmail) {
+      setError('Please enter a Gmail address to create an account.');
+      return;
+    }
+    if (!cleanEmail.endsWith('@gmail.com')) {
+      setError('You must use a valid Gmail address (ending with @gmail.com) to register.');
+      return;
+    }
+
     setLoading('signup');
     setError(null);
 
     try {
+      // Check if Gmail is already registered to another ID
+      const existingUserByEmail = await getUserByEmail(cleanEmail);
+      if (existingUserByEmail) {
+        setError(`This Gmail (${cleanEmail}) is already registered to User ID: ${formatIdWithSpaces(existingUserByEmail.id)}. Please sign in with that ID instead.`);
+        setLoading(null);
+        return;
+      }
+
       // Check if ID is already registered
       const existingUser = await getUserById(signupId);
       if (existingUser) {
@@ -129,7 +147,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       const newUser: User = {
         id: signupId,
         name: signupName.trim(),
-        email: signupEmail.trim() || `${signupId}@webmessenger.internal`,
+        email: cleanEmail,
         avatar: signupAvatar,
         online: true,
         description: signupBio.trim() || 'No description provided.',
@@ -599,17 +617,19 @@ export const listenInboxMessages = (currentUserId, callback) => {
                   />
                 </div>
 
-                {/* Optional Email input */}
+                {/* Required Gmail input */}
                 <div>
-                  <label htmlFor="signup-email" className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2 font-mono">Email Address <span className="text-zinc-600">(Optional)</span></label>
+                  <label htmlFor="signup-email" className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2 font-mono">Gmail Address <span className="text-rose-500 font-bold">*</span></label>
                   <input
                     id="signup-email"
                     type="email"
-                    placeholder="e.g. david.miller@example.com"
+                    required
+                    placeholder="e.g. yourname@gmail.com"
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
                     className="w-full bg-zinc-950 border border-zinc-800/80 focus:border-blue-500/50 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none transition-all"
                   />
+                  <p className="text-[10px] text-zinc-500 mt-1 font-mono">Must end with @gmail.com. Max 1 account per Gmail.</p>
                 </div>
 
                 {/* Short Bio Description input */}
@@ -631,7 +651,7 @@ export const listenInboxMessages = (currentUserId, callback) => {
                   <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2.5 font-mono">Profile Picture</label>
                   <div className="flex items-center gap-5 p-3 bg-zinc-950/40 border border-zinc-800/60 rounded-xl">
                     <img
-                      src={signupAvatar}
+                      src={signupAvatar || undefined}
                       alt="Avatar Preview"
                       referrerPolicy="no-referrer"
                       className="w-14 h-14 rounded-xl bg-zinc-900 border border-zinc-800 p-0.5 object-cover"

@@ -3,7 +3,7 @@ import { User, Message } from './types';
 import LoginScreen from './components/LoginScreen';
 import Sidebar from './components/Sidebar';
 import ActiveChat from './components/ActiveChat';
-import { MessageSquareDashed, MessageSquare, Users, Settings, Shield, Database, LogOut, Cpu, Activity, Copy, Check, Info } from 'lucide-react';
+import { MessageSquareDashed, MessageSquare, Users, Settings, Shield, Database, LogOut, Cpu, Activity, Copy, Check, Info, X } from 'lucide-react';
 import {
   saveUserProfile,
   listenUsers,
@@ -31,6 +31,7 @@ export default function App() {
   const [typingContacts, setTypingContacts] = useState<{ [userId: string]: boolean }>({});
   const [unreadCounts, setUnreadCounts] = useState<{ [userId: string]: number }>({});
   const [copiedContactId, setCopiedContactId] = useState(false);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
 
   // Synchronize current user presence to Firestore
   useEffect(() => {
@@ -292,11 +293,25 @@ export default function App() {
                 onSendMessage={handleSendMessage}
                 onSendTyping={handleSendTyping}
                 isContactTyping={!!typingContacts[selectedContactId]}
+                isRightSidebarOpen={isRightSidebarOpen}
+                onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
               />
             </div>
 
             {/* 4. Right Information Sidebar OVERHAULED with active contact bio profile card */}
-            <aside id="right-sidebar" className="w-72 bg-[#0E0E10]/45 p-6 flex flex-col h-full overflow-y-auto shrink-0 border-l border-zinc-900/40">
+            {isRightSidebarOpen && (
+              <aside id="right-sidebar" className="w-72 bg-[#0E0E10]/45 p-6 flex flex-col h-full overflow-y-auto shrink-0 border-l border-zinc-900/40">
+                {/* Header with Pop-In Button */}
+                <div className="flex items-center justify-between pb-3 mb-4 border-b border-zinc-900/60">
+                  <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold font-mono">Info Panel</span>
+                  <button
+                    onClick={() => setIsRightSidebarOpen(false)}
+                    className="p-1 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-all cursor-pointer"
+                    title="Pop sidebar in"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               
               {/* Contact Profile Overview */}
               <div className="flex flex-col items-center text-center pb-6 border-b border-zinc-900/60">
@@ -390,6 +405,7 @@ export default function App() {
                 </p>
               </div>
             </aside>
+            )}
           </>
         ) : (
           <div id="no-chat-screen" className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0A0A0B]">
