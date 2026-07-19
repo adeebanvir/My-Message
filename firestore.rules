@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity validation rules mapping from master blueprint
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'avatar', 'online', 'lastSeen'])
+        && data.keys().size() == 6
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 100
+        && data.email is string && data.email.size() <= 150
+        && data.avatar is string && data.avatar.size() <= 1000
+        && data.online is bool
+        && data.lastSeen is int;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['senderId', 'recipientId', 'chatId', 'text', 'timestamp', 'status', 'type'])
+        && data.senderId is string && data.senderId.size() <= 128
+        && data.recipientId is string && data.recipientId.size() <= 128
+        && data.chatId is string && data.chatId.size() <= 260
+        && data.text is string && data.text.size() <= 10000
+        && data.timestamp is int
+        && data.status is string && (data.status == 'sent' || data.status == 'read')
+        && data.type is string && data.type == 'text';
+    }
+
+    function isValidTyping(data) {
+      return data.keys().hasAll(['recipientId', 'isTyping', 'timestamp'])
+        && data.keys().size() == 3
+        && data.recipientId is string && data.recipientId.size() <= 128
+        && data.isTyping is bool
+        && data.timestamp is int;
+    }
+
+    // Users Collection rules
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update: if isValidId(userId)
+        && isValidUser(incoming())
+        && incoming().id == userId;
+    }
+
+    // Messages Collection rules
+    match /messages/{messageId} {
+      allow read: if true;
+      allow create: if isValidId(messageId)
+        && isValidMessage(incoming());
+      allow update: if isValidId(messageId)
+        && isValidMessage(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status'])
+        && (incoming().status == 'read');
+    }
+
+    // Typing Collection rules
+    match /typing/{userId} {
+      allow read: if true;
+      allow create, update: if isValidId(userId)
+        && isValidTyping(incoming());
+    }
+  }
+}

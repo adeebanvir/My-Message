@@ -1,0 +1,113 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a registered user profile in the messenger application.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the user (e.g. from Google Auth or Sandbox)."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user."
+        },
+        "avatar": {
+          "type": "string",
+          "description": "URL of the user's profile picture or avatar."
+        },
+        "online": {
+          "type": "boolean",
+          "description": "Whether the user is currently online."
+        },
+        "lastSeen": {
+          "type": "number",
+          "description": "Epoch timestamp of the user's last activity."
+        }
+      },
+      "required": ["id", "name", "email", "avatar", "online", "lastSeen"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A single text message exchanged between two users.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique auto-generated ID of the message document."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "User ID of the message sender."
+        },
+        "recipientId": {
+          "type": "string",
+          "description": "User ID of the message recipient."
+        },
+        "chatId": {
+          "type": "string",
+          "description": "Deterministic conversation ID (senderId_recipientId sorted)."
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "The textual body of the message."
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Epoch timestamp of when the message was sent."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["sent", "read"],
+          "description": "The delivery status of the message."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["text"],
+          "description": "The format type of the message."
+        }
+      },
+      "required": ["senderId", "recipientId", "chatId", "text", "timestamp", "status", "type"]
+    },
+    "TypingState": {
+      "title": "TypingState",
+      "description": "Typing presence indicator for a user directed at a specific recipient.",
+      "type": "object",
+      "properties": {
+        "recipientId": {
+          "type": "string",
+          "description": "User ID of the user being typed to."
+        },
+        "isTyping": {
+          "type": "boolean",
+          "description": "Whether the sender is actively typing."
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Epoch timestamp when the status was last updated."
+        }
+      },
+      "required": ["recipientId", "isTyping", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Registered users table with presence information."
+    },
+    "messages/{messageId}": {
+      "schema": "Message",
+      "description": "Unbounded collection of peer-to-peer messages."
+    },
+    "typing/{userId}": {
+      "schema": "TypingState",
+      "description": "Transient user typing indicators."
+    }
+  }
+}
