@@ -42,20 +42,12 @@ const SANDBOX_PROFILES = [
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [googleClientId, setGoogleClientId] = useState<string>('');
+  const [googleClientId, setGoogleClientId] = useState<string>(() => {
+    return import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+  });
 
   // Load Google Identity Services script
   useEffect(() => {
-    // Fetch google client ID config
-    fetch('/api/auth/config')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.googleClientId && data.googleClientId !== 'YOUR_GOOGLE_CLIENT_ID_PLACEHOLDER') {
-          setGoogleClientId(data.googleClientId);
-        }
-      })
-      .catch((err) => console.error('Failed to load auth config:', err));
-
     const script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;

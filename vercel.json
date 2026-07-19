@@ -1,17 +1,10 @@
 {
   "version": 2,
+  "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/api/ws",
-      "destination": "https://ais-dev-xzi2srymjheuxvzf3pgpuv-68720108802.asia-southeast1.run.app/api/ws"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index.ts"
-    },
-    {
       "source": "/(.*)",
-      "destination": "/dist/$1"
+      "destination": "/index.html"
     }
   ]
 }
