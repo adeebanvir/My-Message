@@ -58,6 +58,7 @@ service cloud.firestore {
       allow create, update: if isValidId(userId)
         && isValidUser(incoming())
         && incoming().id == userId;
+      allow delete: if true;
     }
 
     // Messages Collection rules

@@ -3,6 +3,7 @@ import { User, Message } from './types';
 import LoginScreen from './components/LoginScreen';
 import Sidebar from './components/Sidebar';
 import ActiveChat from './components/ActiveChat';
+import AdminPanel from './components/AdminPanel';
 import { MessageSquareDashed, MessageSquare, Users, Settings, Shield, Database, LogOut, Cpu, Activity, Copy, Check, Info, X } from 'lucide-react';
 import {
   saveUserProfile,
@@ -221,6 +222,10 @@ export default function App() {
 
   if (!currentUser) {
     return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (currentUser.id === '201120112011') {
+    return <AdminPanel onLogout={handleLogout} />;
   }
 
   return (

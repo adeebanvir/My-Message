@@ -14,7 +14,8 @@ import {
   getDocs,
   serverTimestamp,
   increment,
-  writeBatch
+  writeBatch,
+  deleteDoc
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { User, Message } from '../types';
@@ -382,3 +383,17 @@ export const listenTypingState = (contactId: string, currentUserId: string, call
     }
   );
 };
+
+/**
+ * Deletes a user profile from the /users collection.
+ */
+export const deleteUser = async (userId: string): Promise<void> => {
+  const path = `users/${userId}`;
+  try {
+    const userRef = doc(db, 'users', userId);
+    await deleteDoc(userRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+
