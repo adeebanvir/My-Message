@@ -4,6 +4,7 @@ export interface User {
   email: string;
   avatar: string;
   online: boolean;
+  password?: string; // password for security
   lastSeen?: number; // timestamp
   description?: string; // bio/description
   addedContactIds?: string[]; // 12-digit numeric IDs of added friends

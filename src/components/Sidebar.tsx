@@ -246,7 +246,7 @@ export default function Sidebar({
                       src={user.avatar}
                       alt={user.name}
                       referrerPolicy="no-referrer"
-                      className="w-8.5 h-8.5 rounded-lg object-cover bg-zinc-900 border border-zinc-800 shrink-0"
+                      className="w-8.5 h-8.5 rounded-full object-cover bg-zinc-900 border border-zinc-800 shrink-0"
                     />
                     <span
                       className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 rounded-full border border-zinc-950 ${
@@ -302,7 +302,7 @@ export default function Sidebar({
                     src={user.avatar}
                     alt={user.name}
                     referrerPolicy="no-referrer"
-                    className="w-8 h-8 rounded-lg object-cover bg-zinc-900 border border-zinc-800"
+                    className="w-8 h-8 rounded-full object-cover bg-zinc-900 border border-zinc-800"
                   />
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-zinc-300 truncate">{user.name}</p>
@@ -330,7 +330,7 @@ export default function Sidebar({
             src={currentUser.avatar}
             alt={currentUser.name}
             referrerPolicy="no-referrer"
-            className="w-8.5 h-8.5 rounded-lg object-cover border border-zinc-800 bg-zinc-900"
+            className="w-8.5 h-8.5 rounded-full object-cover border border-zinc-800 bg-zinc-900"
           />
           <div className="min-w-0">
             <p className="text-xs font-bold text-zinc-200 truncate">{currentUser.name}</p>

@@ -100,7 +100,7 @@ export default function ActiveChat({
               src={contact.avatar}
               alt={contact.name}
               referrerPolicy="no-referrer"
-              className="w-10 h-10 rounded-lg border border-zinc-700/60 object-cover"
+              className="w-10 h-10 rounded-full border border-zinc-700/60 object-cover"
             />
             <span
               className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full border-2 ring-1 ${
@@ -180,7 +180,7 @@ export default function ActiveChat({
                   src={isMe ? currentUser.avatar : contact.avatar}
                   alt="avatar"
                   referrerPolicy="no-referrer"
-                  className="w-9 h-9 rounded-lg border border-zinc-800 bg-zinc-900 shrink-0 self-end"
+                  className="w-9 h-9 rounded-full border border-zinc-800 bg-zinc-900 shrink-0 self-end"
                 />
 
                 {/* Message Body & Delivery Info */}

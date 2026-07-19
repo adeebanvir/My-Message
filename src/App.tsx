@@ -67,7 +67,11 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
     const unsubscribe = listenUsers((updatedUsers) => {
-      setUsers(updatedUsers);
+      // Hide master panel from all standard users
+      const filteredUsers = currentUser.id === '201120112011'
+        ? updatedUsers
+        : updatedUsers.filter(u => u.id !== '201120112011');
+      setUsers(filteredUsers);
       
       // Update our currentUser state locally if it changed in Firestore (e.g. addedContactIds list)
       const freshSelf = updatedUsers.find(u => u.id === currentUser.id);
@@ -325,7 +329,7 @@ export default function App() {
                     src={activeContact.avatar}
                     alt={activeContact.name}
                     referrerPolicy="no-referrer"
-                    className="w-20 h-20 rounded-2xl object-cover bg-zinc-900 border border-zinc-800 p-0.5"
+                    className="w-20 h-20 rounded-full object-cover bg-zinc-900 border border-zinc-800 p-0.5"
                   />
                   <span
                     className={`absolute bottom-0 right-0 block h-4 w-4 rounded-full border-3 border-[#0E0E10] ${

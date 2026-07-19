@@ -16,10 +16,12 @@ import {
   ShieldCheck,
   UserCheck,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Upload
 } from 'lucide-react';
 import { User } from '../types';
 import { listenUsers, saveUserProfile, deleteUser } from '../lib/firebase';
+import ImageCropperModal from './ImageCropperModal';
 
 interface AdminPanelProps {
   onLogout: () => void;
@@ -36,6 +38,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [editBio, setEditBio] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
   const [editOnline, setEditOnline] = useState(false);
+  const [editPassword, setEditPassword] = useState('');
+  const [showCropper, setShowCropper] = useState(false);
   
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -68,6 +72,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
     setEditBio(user.description || '');
     setEditAvatar(user.avatar);
     setEditOnline(user.online);
+    setEditPassword(user.password || '');
     setErrorMessage(null);
     setSuccessMessage(null);
   };
@@ -90,7 +95,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         email: editEmail.trim().toLowerCase(),
         avatar: editAvatar,
         description: editBio.trim(),
-        online: editOnline
+        online: editOnline,
+        password: editPassword.trim() || undefined
       };
 
       await saveUserProfile(updatedUser, editOnline);
@@ -258,7 +264,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                               src={user.avatar || 'https://api.dicebear.com/7.x/pixel-art/svg'}
                               alt={user.name}
                               referrerPolicy="no-referrer"
-                              className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 p-0.5 object-cover"
+                              className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 p-0.5 object-cover"
                             />
                             <div>
                               <div className="text-xs font-bold text-white group-hover:text-rose-400 transition-colors">
@@ -364,21 +370,41 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                     src={editAvatar}
                     alt="Preview"
                     referrerPolicy="no-referrer"
-                    className="w-16 h-16 rounded-xl bg-zinc-900 border border-zinc-800 p-0.5 object-cover"
+                    className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 p-0.5 object-cover"
                   />
                   <div className="flex-1 space-y-1.5">
-                    <p className="text-[10px] text-zinc-500 font-mono">Vector SVG illustration generated from seed.</p>
-                    <button
-                      type="button"
-                      onClick={randomizeAvatarForEdit}
-                      className="px-3 py-1.5 text-[10px] font-bold bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg hover:text-white transition-all cursor-pointer flex items-center gap-1 text-zinc-300"
-                    >
-                      <RefreshCw className="w-3 h-3 animate-spin-hover" />
-                      Randomize
-                    </button>
+                    <p className="text-[10px] text-zinc-500 font-mono">Customize using seed vector or custom photos.</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={randomizeAvatarForEdit}
+                        className="px-2.5 py-1.5 text-[10px] font-bold bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg hover:text-white transition-all cursor-pointer flex items-center gap-1 text-zinc-300"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Randomize
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCropper(true)}
+                        className="px-2.5 py-1.5 text-[10px] font-bold bg-blue-600 hover:bg-blue-500 border border-transparent rounded-lg text-white transition-all cursor-pointer flex items-center gap-1"
+                      >
+                        <Upload className="w-3 h-3" />
+                        Upload & Crop
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {showCropper && (
+                <ImageCropperModal
+                  onClose={() => setShowCropper(false)}
+                  onCropComplete={(base64) => {
+                    setEditAvatar(base64);
+                    setShowCropper(false);
+                  }}
+                />
+              )}
 
               {/* Form Fields */}
               <div className="space-y-4">
@@ -410,6 +436,17 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                     value={editBio}
                     onChange={(e) => setEditBio(e.target.value)}
                     className="w-full bg-zinc-950 border border-zinc-850 focus:border-rose-500/40 rounded-xl px-4 py-3 text-xs text-zinc-200 focus:outline-none transition-all resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-500 font-bold mb-1.5">Account Password</label>
+                  <input
+                    type="text"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Set security password"
+                    className="w-full bg-zinc-950 border border-zinc-850 focus:border-rose-500/40 rounded-xl px-4 py-3 text-xs text-zinc-200 focus:outline-none transition-all font-mono"
                   />
                 </div>
 

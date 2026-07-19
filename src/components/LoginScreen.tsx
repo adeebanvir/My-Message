@@ -1,7 +1,8 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { LogIn, ShieldAlert, Sparkles, UserCheck, Shield, Zap, MessageSquare, Clock, Globe, ArrowRight, Lock, Laptop, User as UserIcon, RefreshCw, Key, HelpCircle } from 'lucide-react';
+import { LogIn, ShieldAlert, Sparkles, UserCheck, Shield, Zap, MessageSquare, Clock, Globe, ArrowRight, Lock, Laptop, User as UserIcon, RefreshCw, Key, HelpCircle, Upload } from 'lucide-react';
 import { User } from '../types';
 import { saveUserProfile, getUserById, getUserByEmail } from '../lib/firebase';
+import ImageCropperModal from './ImageCropperModal';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: User) => void;
@@ -78,10 +79,14 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [signupBio, setSignupBio] = useState('');
   const [signupAvatar, setSignupAvatar] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [gmailError, setGmailError] = useState<string | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
 
   // Sign In form states
   const [signinId, setSigninId] = useState('');
+  const [signinPassword, setSigninPassword] = useState('');
 
   // Validate Gmail address format based on real Google constraints
   const isValidGmail = (email: string): boolean => {
@@ -104,7 +109,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
   // Generate a random 12-digit numeric ID consisting only of numbers
   const generateNumericId = () => {
-    return Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('');
+    let id = '';
+    do {
+      id = Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('');
+    } while (id === '201120112011');
+    return id;
   };
 
   // Generate a completely new registration ID and initial avatar on load
@@ -150,6 +159,19 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       return;
     }
 
+    if (!signupPassword) {
+      setError('Please choose a password for your account.');
+      return;
+    }
+    if (signupPassword.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (signupPassword !== signupConfirmPassword) {
+      setError('Passwords do not match. Please confirm your password correctly.');
+      return;
+    }
+
     setLoading('signup');
     setError(null);
 
@@ -157,9 +179,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       // Check if Gmail is already registered to another ID
       const existingUserByEmail = await getUserByEmail(cleanEmail);
       if (existingUserByEmail) {
-        const dupError = `This Gmail address (${cleanEmail}) is already registered to User ID: ${formatIdWithSpaces(existingUserByEmail.id)}. One unique account per Gmail address is enforced.`;
+        const dupError = `This Gmail address (${cleanEmail}) is already registered to an existing account. One unique account per Gmail address is enforced.`;
         setError(dupError);
-        setGmailError(`This Gmail is already used by an existing account (User ID: ${formatIdWithSpaces(existingUserByEmail.id)}).`);
+        setGmailError(`This Gmail is already used by an existing account.`);
         setLoading(null);
         return;
       }
@@ -178,6 +200,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         email: cleanEmail,
         avatar: signupAvatar,
         online: true,
+        password: signupPassword,
         description: signupBio.trim() || 'No description provided.',
         addedContactIds: [],
       };
@@ -222,6 +245,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       const user = await getUserById(formattedId);
       if (!user) {
         setError('Error: User ID not found. Ensure you typed the 12 digits correctly or create a new account.');
+        setLoading(null);
+        return;
+      }
+
+      // Enforce password check if the user has a password set
+      if (user.password && user.password !== signinPassword) {
+        setError('Incorrect password. Please verify your credentials and try again.');
         setLoading(null);
         return;
       }
@@ -687,6 +717,34 @@ export const listenInboxMessages = (currentUserId, callback) => {
                   )}
                 </div>
 
+                {/* Password input */}
+                <div>
+                  <label htmlFor="signup-password" className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2 font-mono">Account Password <span className="text-rose-500 font-bold">*</span></label>
+                  <input
+                    id="signup-password"
+                    type="password"
+                    required
+                    placeholder="Min 6 characters"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800/80 focus:border-blue-500/50 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-750 focus:outline-none transition-all font-mono"
+                  />
+                </div>
+
+                {/* Confirm Password input */}
+                <div>
+                  <label htmlFor="signup-confirm-password" className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2 font-mono">Confirm Password <span className="text-rose-500 font-bold">*</span></label>
+                  <input
+                    id="signup-confirm-password"
+                    type="password"
+                    required
+                    placeholder="Re-enter password"
+                    value={signupConfirmPassword}
+                    onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800/80 focus:border-blue-500/50 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-750 focus:outline-none transition-all font-mono"
+                  />
+                </div>
+
                 {/* Short Bio Description input */}
                 <div>
                   <label htmlFor="signup-bio" className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2 font-mono">Short Description / Bio</label>
@@ -704,27 +762,47 @@ export const listenInboxMessages = (currentUserId, callback) => {
                 {/* Profile Picture Customize */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2.5 font-mono">Profile Picture</label>
-                  <div className="flex items-center gap-5 p-3 bg-zinc-950/40 border border-zinc-800/60 rounded-xl">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 p-3 bg-zinc-950/40 border border-zinc-800/60 rounded-xl">
                     <img
                       src={signupAvatar || undefined}
                       alt="Avatar Preview"
                       referrerPolicy="no-referrer"
-                      className="w-14 h-14 rounded-xl bg-zinc-900 border border-zinc-800 p-0.5 object-cover"
+                      className="w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 p-0.5 object-cover self-center sm:self-auto"
                     />
-                    <div className="flex-1 space-y-1">
+                    <div className="flex-1 text-center sm:text-left space-y-0.5">
                       <p className="text-xs text-zinc-300 font-semibold">Avatar preview synced</p>
-                      <p className="text-[10px] text-zinc-500">Dicebear generated vector graphics.</p>
+                      <p className="text-[10px] text-zinc-500">Choose a vector or upload a custom Gmail-style photo.</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleRandomizeAvatar}
-                      className="px-3.5 py-2 text-xs font-semibold bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg hover:text-white transition-all cursor-pointer flex items-center gap-1.5 text-zinc-300"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      Randomize
-                    </button>
+                    <div className="flex gap-2 justify-center">
+                      <button
+                        type="button"
+                        onClick={handleRandomizeAvatar}
+                        className="flex-1 sm:flex-initial px-3 py-2 text-xs font-semibold bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg hover:text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 text-zinc-300"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Randomize
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCropper(true)}
+                        className="flex-1 sm:flex-initial px-3 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 border border-transparent rounded-lg text-white transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Upload & Crop
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {showCropper && (
+                  <ImageCropperModal
+                    onClose={() => setShowCropper(false)}
+                    onCropComplete={(base64) => {
+                      setSignupAvatar(base64);
+                      setShowCropper(false);
+                    }}
+                  />
+                )}
 
                 {/* Gmail Error Alert at the bottom of the form */}
                 {gmailError && (
@@ -788,6 +866,22 @@ export const listenInboxMessages = (currentUserId, callback) => {
                     </div>
                   </div>
                 </div>
+
+                {/* Password field for standard accounts */}
+                {signinId.replace(/\s/g, '') !== '201120112011' && (
+                  <div>
+                    <label htmlFor="signin-password" className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2 font-mono">Enter Password</label>
+                    <input
+                      id="signin-password"
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={signinPassword}
+                      onChange={(e) => setSigninPassword(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800/80 focus:border-blue-500/50 rounded-xl px-4 py-3.5 text-sm text-zinc-200 placeholder-zinc-700 focus:outline-none transition-all font-mono"
+                    />
+                  </div>
+                )}
 
                 <button
                   id="signin-action-btn"
